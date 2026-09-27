@@ -19,8 +19,12 @@ python main.py
 
 ## 打包 exe
 
+双击运行 `build.bat`，或在独立虚拟环境中执行：
+
 ```bash
-pyinstaller --noconsole --onefile --name ResumeAssistant main.py
+python -m venv .venv
+.venv/Scripts/python -m pip install python-docx pyinstaller
+.venv/Scripts/python -m PyInstaller --noconsole --onefile --name ResumeAssistant main.py
 ```
 
-生成文件位于 `dist/ResumeAssistant.exe`。
+生成文件位于 `dist/ResumeAssistant.exe`。建议在独立 venv 中打包（Anaconda 自带的过时 `pathlib` 反向移植包会与 PyInstaller 冲突）。
