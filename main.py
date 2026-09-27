@@ -135,20 +135,18 @@ class App:
         self.path_lbl = tk.Label(bar, text='', bg='#ffffff', fg=MUTED, font=FONT_SMALL, anchor='w')
         self.path_lbl.pack(side='left', padx=14, fill='x', expand=True)
 
-        body = tk.Frame(self.root, bg=BG)
-        body.pack(fill='both', expand=True)
+        paned = ttk.PanedWindow(self.root, orient='horizontal')
+        paned.pack(fill='both', expand=True)
 
-        left = tk.Frame(body, bg='#ffffff', width=270)
-        left.pack(side='left', fill='y')
-        left.pack_propagate(False)
+        left = tk.Frame(paned, bg='#ffffff')
         tk.Label(left, text='大纲', bg='#ffffff', fg=FG, font=FONT_BOLD, anchor='w').pack(
             fill='x', padx=14, pady=(12, 4))
         self.tree = ttk.Treeview(left, show='tree', selectmode='browse')
         self.tree.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.tree.column('#0', width=250, minwidth=120)
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
 
-        right = tk.Frame(body, bg=BG)
-        right.pack(side='left', fill='both', expand=True)
+        right = tk.Frame(paned, bg=BG)
         self.breadcrumb = tk.Label(right, text='', bg=BG, fg=MUTED, font=FONT_SMALL, anchor='w')
         self.breadcrumb.pack(fill='x', padx=18, pady=(14, 2))
 
@@ -162,6 +160,9 @@ class App:
         self.inner.bind('<Configure>', lambda e: self.canvas.configure(scrollregion=self.canvas.bbox('all')))
         self.canvas.bind('<Configure>', self._on_resize)
         self.canvas.bind('<MouseWheel>', self._wheel)
+
+        paned.add(left, weight=0)
+        paned.add(right, weight=1)
 
         self.status = tk.Label(self.root, text='', bg='#eef1f5', fg=MUTED, font=FONT_SMALL, anchor='w')
         self.status.pack(fill='x', side='bottom')
