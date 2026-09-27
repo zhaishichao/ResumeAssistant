@@ -14,6 +14,8 @@ FONT = ('Microsoft YaHei UI', 10)
 FONT_BOLD = ('Microsoft YaHei UI', 10, 'bold')
 FONT_TITLE = ('Microsoft YaHei UI', 11, 'bold')
 FONT_SMALL = ('Microsoft YaHei UI', 9)
+BALL_HOTKEY = '<F8>'
+BALL_KEY = '#ff00ff'
 
 LABEL_RE = re.compile(r'^([一-龥A-Za-z]{1,8})：(.*)$')
 NUM_RE = re.compile(r'^\d+、')
@@ -164,6 +166,7 @@ class App:
         self.root.minsize(280, 240)
         self.root.configure(bg=BG)
         self.topmost = False
+        self.ball_mode = False
         self.sections = []
         self.idmap = {}
         self._wrap_labels = []
@@ -182,6 +185,8 @@ class App:
         ttk.Button(bar, text='打开文档', command=self.open_dialog).pack(side='left', padx=10, pady=8)
         self.top_btn = ttk.Button(bar, text='置顶', command=self.toggle_top)
         self.top_btn.pack(side='left', padx=4)
+        self.ball_btn = ttk.Button(bar, text='悬浮球', command=self.toggle_ball)
+        self.ball_btn.pack(side='left', padx=4)
         self.path_lbl = tk.Label(bar, text='', bg='#ffffff', fg=MUTED, font=FONT_SMALL, anchor='w')
         self.path_lbl.pack(side='left', padx=14, fill='x', expand=True)
 
@@ -216,6 +221,9 @@ class App:
 
         self.status = tk.Label(self.root, text='', bg='#eef1f5', fg=MUTED, font=FONT_SMALL, anchor='w')
         self.status.pack(fill='x', side='bottom')
+
+        self._create_ball()
+        self.root.bind(BALL_HOTKEY, lambda e: self.toggle_ball())
 
     def _welcome(self):
         tk.Label(self.inner, text='请点击左上角【打开文档】，选择个人简历 Word 文档',
@@ -378,7 +386,55 @@ class App:
     def toggle_top(self):
         self.topmost = not self.topmost
         self.root.attributes('-topmost', self.topmost)
+        self.ball.attributes('-topmost', self.topmost)
         self.top_btn.config(text='置顶 ✓' if self.topmost else '置顶')
+
+    def toggle_ball(self, enable=None):
+        if enable is None:
+            enable = not self.ball_mode
+        self.ball_mode = enable
+        if enable:
+            self.root.withdraw()
+            self.ball.attributes('-topmost', self.topmost)
+            self.ball.deiconify()
+            self.ball_btn.config(text='恢复窗口')
+        else:
+            self.ball.withdraw()
+            self.root.deiconify()
+            self.ball_btn.config(text='悬浮球')
+
+    def _create_ball(self):
+        self.ball = tk.Toplevel(self.root)
+        self.ball.overrideredirect(True)
+        sw = self.root.winfo_screenwidth()
+        self.ball.geometry('56x56+%d+%d' % (sw - 96, 96))
+        self.ball.attributes('-topmost', self.topmost)
+        try:
+            self.ball.wm_attributes('-transparentcolor', BALL_KEY)
+        except Exception:
+            pass
+        c = tk.Canvas(self.ball, width=56, height=56, highlightthickness=0, bg=BALL_KEY)
+        c.pack()
+        c.create_oval(2, 2, 54, 54, fill=ACCENT, outline='')
+        c.create_text(28, 28, text='简历', fill='#ffffff', font=('Microsoft YaHei UI', 11, 'bold'))
+        c.bind('<Button-1>', self._ball_press)
+        c.bind('<B1-Motion>', self._ball_drag)
+        c.bind('<Double-Button-1>', lambda e: self.toggle_ball(False))
+        c.bind(BALL_HOTKEY, lambda e: self.toggle_ball())
+        self._ball_menu = tk.Menu(self.ball, tearoff=0)
+        self._ball_menu.add_command(label='恢复窗口', command=lambda: self.toggle_ball(False))
+        self._ball_menu.add_command(label='退出', command=self.root.destroy)
+        c.bind('<Button-3>', lambda e: self._ball_menu.tk_popup(e.x_root, e.y_root))
+        self.ball.withdraw()
+
+    def _ball_press(self, e):
+        self._ball_ox = e.x
+        self._ball_oy = e.y
+
+    def _ball_drag(self, e):
+        x = self.ball.winfo_x() + (e.x - self._ball_ox)
+        y = self.ball.winfo_y() + (e.y - self._ball_oy)
+        self.ball.geometry('+%d+%d' % (x, y))
 
     def run(self):
         self.root.mainloop()
