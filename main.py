@@ -173,6 +173,11 @@ class App:
     def _wheel(self, e):
         self.canvas.yview_scroll(int(-e.delta / 120), 'units')
 
+    def _bind_wheel_recursive(self, w):
+        w.bind('<MouseWheel>', self._wheel)
+        for c in w.winfo_children():
+            self._bind_wheel_recursive(c)
+
     def _on_resize(self, e):
         self.canvas.itemconfig(self._win, width=e.width)
         w = max(220, e.width - 140)
@@ -242,8 +247,9 @@ class App:
                 self._expand(b)
         if not self.inner.winfo_children():
             tk.Label(self.inner, text='（本节暂无内容）', bg=BG, fg=MUTED, font=FONT).pack(pady=40)
-            return
-        self._apply_wrap()
+        else:
+            self._apply_wrap()
+        self._bind_wheel_recursive(self.inner)
 
     def _expand(self, text):
         for kind, tag, txt in blocks_of(text):
@@ -287,9 +293,29 @@ class App:
         try:
             self.root.clipboard_clear()
             self.root.clipboard_append(text)
+            self._show_toast('已复制')
             self._flash('已复制：' + (text[:40] + '…' if len(text) > 40 else text))
         except Exception as ex:
             self._flash('复制失败：' + str(ex))
+
+    def _show_toast(self, msg):
+        old = getattr(self, '_toast', None)
+        if old is not None:
+            try:
+                old.destroy()
+            except Exception:
+                pass
+        try:
+            x = self.root.winfo_pointerx() - self.root.winfo_rootx() + 12
+            y = self.root.winfo_pointery() - self.root.winfo_rooty() + 14
+        except Exception:
+            x = self.root.winfo_width() // 2
+            y = self.root.winfo_height() // 2
+        self._toast = tk.Label(self.root, text=msg, bg='#2f3542', fg='#ffffff',
+                               font=('Microsoft YaHei UI', 9), padx=12, pady=5)
+        self._toast.place(x=x, y=y)
+        self._toast.lift()
+        self.root.after(1200, self._toast.destroy)
 
     def _flash(self, msg):
         self.status.config(text=msg, fg=ACCENT)
