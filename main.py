@@ -19,6 +19,8 @@ LABEL_RE = re.compile(r'^([一-龥A-Za-z]{1,8})：(.*)$')
 NUM_RE = re.compile(r'^\d+、')
 DATE_RE = re.compile(r'20\d{2}[.\-/年]')
 FIELD_SEP_RE = re.compile(r'([一-龥A-Za-z]{1,8})：')
+DATE_TAIL_RE = re.compile(r'(20\d{2}\.\d{2}(?:\.\d{2})?(?:—20\d{2}\.\d{2}(?:\.\d{2})?)?)\s*$')
+DATE_PAREN_RE = re.compile(r'（(20\d{2}[^）]*)）\s*$')
 
 
 def heading_level(p):
@@ -41,7 +43,53 @@ def is_noise(t):
     return False
 
 
-def blocks_of(text):
+def detect_kind(title):
+    if '实习' in title:
+        return 'intern'
+    if '项目' in title:
+        return 'project'
+    if '学生工作' in title:
+        return 'work'
+    if '社会实践' in title:
+        return 'practice'
+    return ''
+
+
+def split_name(text, kind):
+    """把名称行拆成 公司/岗位/名称/职位/时间 等字段，便于分别复制。"""
+    fields = []
+    time_val = ''
+    head = text
+    m = DATE_PAREN_RE.search(head)
+    if m:
+        time_val = m.group(1)
+        head = head[:m.start()].rstrip()
+    else:
+        m = DATE_TAIL_RE.search(head)
+        if m:
+            time_val = m.group(1)
+            head = head[:m.start()].rstrip()
+    if kind in ('intern', 'project') and '—' in head:
+        left, right = head.split('—', 1)
+        left, right = left.strip(), right.strip()
+        if left:
+            fields.append(('公司' if kind == 'intern' else '名称', left))
+        if right:
+            fields.append(('岗位', right))
+    elif kind == 'work' and ' ' in head:
+        left, right = head.rsplit(' ', 1)
+        if left.strip():
+            fields.append(('名称', left.strip()))
+        if right.strip():
+            fields.append(('职位', right.strip()))
+    elif head:
+        fields.append(('名称', head))
+    if time_val:
+        fields.append(('时间', time_val))
+    return fields
+
+
+def blocks_of(text, context=''):
     """把一段正文拆成若干展示块：(kind, tag, text)。
     kind: name 名称/字段 field/内容 content/空标签 subhead。"""
     m = LABEL_RE.match(text)
@@ -61,6 +109,8 @@ def blocks_of(text):
     if NUM_RE.match(text):
         return [('content', '内容', text)]
     if DATE_RE.search(text) or ('—' in text and len(text) <= 40):
+        if context in ('intern', 'project', 'work', 'practice'):
+            return [('field', lab, val) for lab, val in split_name(text, context)]
         return [('name', '名称', text)]
     return [('content', '内容', text)]
 
@@ -236,24 +286,27 @@ class App:
         for w in self.inner.winfo_children():
             w.destroy()
         self._wrap_labels = []
+        ctx = detect_kind(node['title'])
         if node['children']:
             for b in node['body']:
-                self._expand(b)
+                self._expand(b, ctx)
             for c in node['children']:
                 self._subtitle(c['title'])
+                cctx = detect_kind(c['title'])
                 for b in c['body']:
-                    self._expand(b)
+                    self._expand(b, cctx)
         else:
             for b in node['body']:
-                self._expand(b)
+                self._expand(b, ctx)
         if not self.inner.winfo_children():
             tk.Label(self.inner, text='（本节暂无内容）', bg=BG, fg=MUTED, font=FONT).pack(pady=40)
         else:
             self._apply_wrap()
         self._bind_wheel_recursive(self.inner)
+        self.canvas.yview_moveto(0)
 
-    def _expand(self, text):
-        for kind, tag, txt in blocks_of(text):
+    def _expand(self, text, context=''):
+        for kind, tag, txt in blocks_of(text, context):
             if kind == 'subhead':
                 self._subhead(tag)
             else:
