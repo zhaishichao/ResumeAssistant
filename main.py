@@ -110,8 +110,8 @@ class App:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title('简历助手')
-        self.root.geometry('1040x700')
-        self.root.minsize(760, 520)
+        self.root.geometry('920x640')
+        self.root.minsize(280, 240)
         self.root.configure(bg=BG)
         self.topmost = False
         self.sections = []
@@ -143,7 +143,7 @@ class App:
             fill='x', padx=14, pady=(12, 4))
         self.tree = ttk.Treeview(left, show='tree', selectmode='browse')
         self.tree.pack(fill='both', expand=True, padx=8, pady=(0, 8))
-        self.tree.column('#0', width=250, minwidth=120)
+        self.tree.column('#0', width=250, minwidth=80)
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
 
         right = tk.Frame(paned, bg=BG)
@@ -181,7 +181,7 @@ class App:
 
     def _on_resize(self, e):
         self.canvas.itemconfig(self._win, width=e.width)
-        w = max(220, e.width - 140)
+        w = max(60, e.width - 140)
         for l in self._wrap_labels:
             try:
                 l.configure(wraplength=w)
@@ -260,7 +260,7 @@ class App:
                 self._card(kind, tag, txt)
 
     def _apply_wrap(self):
-        w = max(220, self.canvas.winfo_width() - 140)
+        w = max(60, self.canvas.winfo_width() - 140)
         for l in self._wrap_labels:
             l.configure(wraplength=w)
 
