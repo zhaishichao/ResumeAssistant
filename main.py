@@ -46,6 +46,10 @@ def is_noise(t):
 
 
 def detect_kind(title):
+    if '论文' in title:
+        return 'paper'
+    if '专利' in title:
+        return 'patent'
     if '实习' in title:
         return 'intern'
     if '项目' in title:
@@ -91,6 +95,80 @@ def split_name(text, kind):
     return fields
 
 
+def split_paper(text):
+    """论文：拆成 作者/题目/期刊/补充信息。"""
+    t = re.sub(r'^\d+、', '', text).strip()
+    fields = []
+    extra = ''
+    m = re.search(r'（([^）]*)）\s*$', t)
+    if m:
+        extra = m.group(1)
+        t = t[:m.start()].rstrip(' 。.,;')
+    year = ''
+    m = re.search(r',\s*(20\d{2})\s*\.?\s*$', t)
+    if m:
+        year = m.group(1)
+        t = t[:m.start()].rstrip()
+    title = ''
+    authors = ''
+    journal = ''
+    m = re.search(r'"([^"]*)"', t)
+    if m:
+        title = m.group(1).strip().rstrip(',')
+        authors = t[:m.start()].rstrip(' ,')
+        after = t[m.end():].strip()
+        jm = re.match(r'in\s+(.+)$', after)
+        journal = jm.group(1).rstrip(' ,.') if jm else after.rstrip(' ,.')
+    else:
+        authors = t.rstrip(' ,')
+    if authors:
+        fields.append(('作者', authors))
+    if title:
+        fields.append(('题目', title))
+    if journal:
+        fields.append(('期刊', journal + (', ' + year if year else '')))
+    if extra:
+        fields.append(('补充信息', extra))
+    return fields
+
+
+def split_patent(text):
+    """专利：拆成 题目/专利号/补充信息。"""
+    t = re.sub(r'^\d+、', '', text).strip()
+    fields = []
+    extra = ''
+    m = re.search(r'（([^）]*)）\s*$', t)
+    if m:
+        extra = m.group(1)
+        t = t[:m.start()].rstrip(' ，。.,;')
+    title = ''
+    rest = ''
+    m = re.search(r'^(.*?)：(.*)$', t)
+    if m:
+        title = m.group(1).strip()
+        rest = m.group(2).strip()
+    else:
+        title = t
+    number = ''
+    tail = ''
+    nm = re.match(r'(\S+?\[P\])(?:[，,]\s*(.*))?$', rest)
+    if nm:
+        number = nm.group(1)
+        tail = (nm.group(2) or '').strip()
+    else:
+        parts = re.split(r'[，,]', rest, 1)
+        number = parts[0].strip()
+        tail = parts[1].strip() if len(parts) > 1 else ''
+    extra_all = (tail + ('（' + extra + '）' if extra else '')).strip()
+    if title:
+        fields.append(('题目', title))
+    if number:
+        fields.append(('专利号', number))
+    if extra_all:
+        fields.append(('补充信息', extra_all))
+    return fields
+
+
 def blocks_of(text, context=''):
     """把一段正文拆成若干展示块：(kind, tag, text)。
     kind: name 名称/字段 field/内容 content/空标签 subhead。"""
@@ -109,6 +187,10 @@ def blocks_of(text, context=''):
             return blocks
         return [('field', label, val)]
     if NUM_RE.match(text):
+        if context == 'paper':
+            return [('field', lab, val) for lab, val in split_paper(text)]
+        if context == 'patent':
+            return [('field', lab, val) for lab, val in split_patent(text)]
         return [('content', '内容', text)]
     if DATE_RE.search(text) or ('—' in text and len(text) <= 40):
         if context in ('intern', 'project', 'work', 'practice'):
